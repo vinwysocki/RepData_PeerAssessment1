@@ -1,25 +1,112 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Reproducible Research (Project 1)"
+author: "Vincent Wysocki"
+date: "4/19/2021"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate)
+library(chron)
+```
 
-## Loading and preprocessing the data
-
-
-
-## What is mean total number of steps taken per day?
-
-
-
-## What is the average daily activity pattern?
-
-
-
-## Imputing missing values
-
+**Read Data from WD**
+```{r cars}
+my_data.with.na <- read.csv("activity.csv")
+my_data.with.na$steps <- as.numeric((my_data.with.na$steps), na.rm = TRUE)
+my_data <- my_data.with.na %>% filter(my_data.with.na$steps != "NA")
+```
 
 
-## Are there differences in activity patterns between weekdays and weekends?
+**Summing steps, calculating the mean and median values** 
+```{r }
+sum_steps <- my_data %>% group_by(date) %>% summarise(sum_steps = sum(steps))
+ggplot(sum_steps, aes(x = sum_steps)) + geom_histogram(bins = 50) + labs(y = "Number of Days", x = "Steps per Day", title = "Histogram of Step Sum Distribution")
+
+mean_steps  <- my_data %>% group_by(date) %>% summarise(mean(steps))
+colnames(mean_steps) <- c("date", "steps")
+print(mean_steps$steps)
+
+
+median_steps <- my_data %>% group_by(date) %>% summarise(median(steps))
+colnames(median_steps) <- c("date", "steps")
+print(median_steps$steps)
+```
+
+**Average the steps, preserving the interval group, and ploting a line chart.** 
+```{r }
+avg_steps <- my_data %>% group_by(interval) %>% summarise(mean(steps))
+colnames(avg_steps) <- c("interval", "steps")
+plot(x = avg_steps$interval, y = avg_steps$steps, type = "l", xlab = "Interval", ylab = "Average steps", main  = "Line chart of Average Steps per Interval")
+index <- which(avg_steps$steps == max(avg_steps$steps))
+print(avg_steps[index, 1])
+```
+
+
+
+**Finding out how many "NA"s and then replacing that index with the average value for that interval** 
+```{r }
+index2 <- which(is.na(my_data.with.na$steps))
+print(length(index2))
+imput_data <- my_data.with.na
+for (i in index2){
+
+        imput_data[i,1] <- avg_steps[which(avg_steps$interval == my_data.with.na[i,3]), 2]
+
+}
+
+```
+
+
+**Finding the steps sum per interval and histogram**  
+**The result of imputation is a larger distribution for days with high step counts. Additionally, a higher mean for each day, and median values for some days instead of all being zero**
+```{r }
+
+imput.sum_steps <- imput_data %>% group_by(date) %>% summarise(sum_steps = sum(steps))
+ggplot(imput.sum_steps, aes(x = sum_steps)) + geom_histogram(bins = 50) + labs(y = "Number of Days", x = "Steps per Day", title = "Histogram of Sum Step Distribution per Day")
+```
+
+
+**Finding Mean and Median Values**
+```{r }
+imput.mean <- imput_data %>% group_by(date) %>% summarise(mean(steps))
+colnames(imput.mean) <- c("date", "steps")
+```
+
+
+**Comparing mean values with imputation vs. no imputation**
+```{r }
+print(imput.mean$steps)
+print(mean_steps$steps)
+```
+
+```{r }
+imput.median <- imput_data %>% group_by(date) %>% summarise(median(steps))
+colnames(imput.median) <- c("date", "steps")
+```
+
+**Comparing median values with imputation vs. no imputation**
+```{r }
+print(imput.median$steps)
+print(median_steps$steps)
+
+```
+
+
+**Setting date as factor and "recoding" for aesthetic of facet_grid**
+```{r }
+
+imput_data$date   <- as.Date(imput_data$date)
+imput_data$factor <- as.character(is.weekend(imput_data$date))
+imput_data$factor <- recode(imput_data$factor, "FALSE" = "Weekday", "TRUE" = "Weekend")
+```
+
+**Finding the average steps per interval by day of the week and plotting line graph**
+```{r }
+new_data <- imput_data %>% group_by(factor, interval) %>% summarize(sum_steps = mean(steps))
+ggplot(new_data, aes(x = interval, y = sum_steps)) + geom_line() + coord_cartesian(ylim = c(-2,250)) + 
+        facet_grid(factor ~ .) + labs(x = "Intervals", y = "Mean Interval Steps", title  = "Mean Steps per Interval by Day of the Week")
+
+```
